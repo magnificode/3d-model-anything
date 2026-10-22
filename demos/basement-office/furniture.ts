@@ -334,7 +334,7 @@ export function walkingPad(fm: FurnitureMaterials, center: V3, rotY: number) {
 }
 
 /** Tan bolster dog bed on the closet floor east of the shelf (photos 65, 161; mesh: 0.6–0.75 across, bolster 0.25) */
-export function dogBed(fm: FurnitureMaterials, center: V3) {
+export function dogBed(fm: FurnitureMaterials, center: V3, rotY = 0) {
   const g = named(new THREE.Group(), 'dog-bed');
   // U-shaped bolster (back to the closet wall, local −z) around a pad sunk below its top
   g.add(
@@ -344,7 +344,7 @@ export function dogBed(fm: FurnitureMaterials, center: V3) {
     cushion([0.16, 0.19, 0.5], [0.28, 0.095, 0.05], 0.07, fm.beigeFleece),
     cushion([0.44, 0.12, 0.12], [0, 0.06, 0.24], 0.05, fm.beigeFleece),
   );
-  return place(g, center);
+  return place(g, center, rotY);
 }
 
 /**
