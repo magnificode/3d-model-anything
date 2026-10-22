@@ -101,6 +101,13 @@ jobs:
           xcodegen generate
           grep -q "PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID" HouseCapture.xcodeproj/project.pbxproj \
             || { echo "::error::bundle id in generated project is not $BUNDLE_ID"; exit 1; }
+          # XcodeGen writes CURRENT_PROJECT_VERSION into Info.plist as a literal, so the build setting
+          # passed to xcodebuild does not reach CFBundleVersion. Stamp the plist directly.
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" HouseCapture/Info.plist \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUMBER" HouseCapture/Info.plist
+          echo "CFBundleVersion: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' HouseCapture/Info.plist)"
+          [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' HouseCapture/Info.plist)" = "$BUILD_NUMBER" ] \
+            || { echo "::error::CFBundleVersion was not stamped with $BUILD_NUMBER"; exit 1; }
 
       - name: Compile check (unsigned)
         if: env.UPLOAD != 'true'
