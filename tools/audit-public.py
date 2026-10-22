@@ -11,7 +11,7 @@ for name in files:
     if path.is_symlink(): errors.append(f'Symlink is not distributable: {name}')
     if any(part in name.split('/') for part in ['kaitlin-office', 'playroom', 'gym', 'living-room', 'house-layout', 'captures-in', 'recordings', 'xcuserdata']):
         errors.append(f'Private or generated path: {name}')
-    if name.startswith('demos/') and name != 'demos/index.ts' and name.split('/')[1] not in ['office-v2', 'office-latest', 'office-v4']:
+    if name.startswith('demos/') and name != 'demos/index.ts' and name.split('/')[1] not in ['office-v2', 'office-latest', 'office-v4', 'basement-office']:
         errors.append(f'Unreviewed demo: {name}')
     if name.startswith('data/'):
         digest = hashlib.sha256(path.read_bytes()).hexdigest()

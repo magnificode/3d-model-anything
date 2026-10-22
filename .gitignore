@@ -15,3 +15,6 @@ data/scans/
 apps/house-capture/release/screenshots/
 
 HouseCapture.xcodeproj/
+
+# basement-office: measurements (data/demos) are tracked; photos and LiDAR mesh stay local
+data/web-assets/basement-office/
