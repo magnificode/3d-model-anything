@@ -51,10 +51,6 @@ jobs:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
-      ASC_KEY_DIR: ${{ runner.temp }}/asc
-      ARCHIVE_PATH: ${{ runner.temp }}/HouseCapture.xcarchive
-      DERIVED_DATA: ${{ runner.temp }}/DerivedData
-      LOG_DIR: ${{ runner.temp }}/logs
       BUILD_NUMBER: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +59,14 @@ jobs:
         env:
           HAS_P8: ${{ secrets.ASC_KEY_P8 != '' }}
         run: |
+          # runner.temp is not available in job-level env; set work paths here.
+          {
+            echo "ASC_KEY_DIR=$RUNNER_TEMP/asc"
+            echo "ARCHIVE_PATH=$RUNNER_TEMP/HouseCapture.xcarchive"
+            echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData"
+            echo "LOG_DIR=$RUNNER_TEMP/logs"
+          } >> "$GITHUB_ENV"
+          LOG_DIR="$RUNNER_TEMP/logs"
           echo "mode: $([ "$UPLOAD" = "true" ] && echo 'archive + TestFlight upload' || echo 'compile check only')"
           echo "build number: $BUILD_NUMBER"
           if [ "$UPLOAD" = "true" ]; then
