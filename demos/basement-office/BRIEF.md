@@ -162,3 +162,17 @@ npm run build
 python3 tools/audit-public.py
 python3 .agents/skills/scan-to-threejs/scripts/test_house_import.py
 ```
+
+## Plan variant
+
+`?room=basement-office-plan` is a copy of this room for trying out new layouts. It shares the walls,
+window, door, wall art, lights and scan reference with the scanned room (`buildRoom()` in `index.ts`).
+Only the furniture differs: `plan.ts` places it from two lists.
+
+- `ARRANGEMENT`: one entry per modeled piece, `{ piece, at: [x, z], rotY }`. It starts as a copy of the
+  scanned positions. The floor clutter is left out.
+- `BLOCKOUTS`: translucent boxes for pieces nobody has modeled yet, `{ name, size: [w, h, d], at: [x, z], rotY }`.
+
+To iterate, edit the two lists and the viewer reloads. Layout draws the overhead plan from the placed
+pieces' bounds. Overlay shows the scan mesh, so you can check a layout against the real room. Knolling
+lists the pieces and block-outs. The scanned room (`?room=basement-office`) is the record and stays as captured.

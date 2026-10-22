@@ -7,10 +7,11 @@ import { buildWall, wallMatrix, type Opening, type WallDef } from '../../package
 import { boxSpan, boxUV, mesh } from '../../packages/room-runtime/helpers';
 import { loadTextures, materials, type Palette } from '../../packages/room-runtime/materials';
 import { batchStatic } from '../../packages/room-runtime/batch';
-import type { BuiltRoom, PhotoPose, RoomModule, V3 } from '../../packages/room-runtime/types';
+import type { BuiltRoom, PhotoPose, RoomLayout, RoomModule, V3 } from '../../packages/room-runtime/types';
 import { buildDoor } from './door';
 import {
   acousticPanel, dogBed, floorClutter, floorLamp, furnitureMaterials, gamingChair, ladderShelf, pineCabinet, standingDesk, walkingPad,
+  type FurnitureMaterials,
 } from './furniture';
 import { wallArt } from './wall-art';
 import { buildWindow, WINDOW, windowLight } from './window';
@@ -103,15 +104,18 @@ function flat(poly: [number, number][], y: number, material: THREE.Material, fac
 const obj = (i: number) => scan.objects[i];
 const onFloor = (i: number): V3 => [obj(i).center[0], 0, obj(i).center[2]];
 
+/** Fixed furniture: static colliders in the playground, one item each in knolling */
+export function fixed(pieces: THREE.Object3D[]) {
+  for (const p of pieces) p.userData.physics = { type: 'static' };
+  return pieces;
+}
+
 /**
  * Furniture by RoomPlan object (index into scan.objects), each placed by its centre and rotY.
  * Exceptions from the mesh: the chair stood at (−0.63, 0.67), 0.36 m from RoomPlan's box; the desk is
  * 1.72 m wide, centred at z 0.69, where RoomPlan's box is 1.24 m and stops short of its north end.
  */
-function furniture(m: Palette) {
-  const fm = furnitureMaterials(m);
-  const g = new THREE.Group();
-  g.name = 'furniture';
+function scannedFurniture(fm: FurnitureMaterials) {
   const pieces = [
     standingDesk(fm, [obj(1).center[0], 0, 0.69], obj(1).rotY),
     gamingChair(fm, [-0.63, 0, 0.67], obj(0).rotY),
@@ -123,10 +127,7 @@ function furniture(m: Palette) {
     walkingPad(fm, [0.22, 0, 1.8], Math.PI),
     dogBed(fm, [0.3, 0, -1.47]),
   ];
-  // fixed furniture: static colliders in the playground, one item each in knolling
-  for (const p of pieces) p.userData.physics = { type: 'static' };
-  g.add(...pieces, floorClutter(fm));
-  return g;
+  return [...fixed(pieces), floorClutter(fm)];
 }
 
 /**
@@ -208,7 +209,20 @@ async function loadScan(onProgress?: (p: number) => void) {
   return m;
 }
 
-export async function buildBasementOffice(): Promise<BuiltRoom> {
+/** What differs between the scanned room and an arrangement of it; the shell, lights and scan are shared. */
+export interface RoomOptions {
+  /** placed pieces, added under the 'furniture' group */
+  furniture(fm: FurnitureMaterials, m: Palette): THREE.Object3D[];
+  /** overhead-plan boxes, given the placed pieces */
+  objects(pieces: THREE.Object3D[]): RoomLayout['objects'];
+  note: string;
+  camera?: BuiltRoom['camera'];
+}
+
+// door is on wall 9 (east); start just inside it looking across at the desk
+const CAMERA: BuiltRoom['camera'] = { orbit: [4.5, 5, 5.5], target: [0, 0.8, 0], walk: [0.8, 1.6, 0.1], walkLook: [-0.7, 1.1, 0.9] };
+
+export async function buildRoom(opts: RoomOptions): Promise<BuiltRoom> {
   await loadTextures();
   const m = materials();
   const group = new THREE.Group();
@@ -254,7 +268,11 @@ export async function buildBasementOffice(): Promise<BuiltRoom> {
   const ceiling = new THREE.Group();
   ceiling.name = 'ceiling';
   ceiling.add(ceilingPlane, canFixtures(m));
-  group.add(floor, ceiling, ...walls.map((w) => w.group), furniture(m));
+  const furniture = new THREE.Group();
+  furniture.name = 'furniture';
+  const pieces = opts.furniture(furnitureMaterials(m), m);
+  furniture.add(...pieces);
+  group.add(floor, ceiling, ...walls.map((w) => w.group), furniture);
 
   const photos: PhotoPose[] = scan.photos.map((p, i) => ({
     url: `/basement-office/photos/${String(i).padStart(4, '0')}.jpg`,
@@ -264,10 +282,10 @@ export async function buildBasementOffice(): Promise<BuiltRoom> {
   let optimized: ReturnType<typeof batchStatic> | undefined;
   return {
     layout: {
-      note: 'RoomPlan measurements from the 2026-10-22 scan; window span corrected from the LiDAR mesh. Object boxes are RoomPlan bounds; the modeled furniture follows the mesh where they differ.',
+      note: opts.note,
       polygon: scan.polygon,
       walls: scan.walls.map((w) => ({ a: w.a, b: w.b, u: w.u, length: w.length, openings: roomOpenings(w) })),
-      objects: ROOM_OBJECTS,
+      objects: opts.objects(pieces),
     },
     group,
     lights: lights(),
@@ -280,14 +298,21 @@ export async function buildBasementOffice(): Promise<BuiltRoom> {
     wallTop: CEILING,
     exposure: 1.2,
     walkable: (x, z) => insideRoom(x, z) && insideRoom(x + 0.2, z) && insideRoom(x - 0.2, z) && insideRoom(x, z + 0.2) && insideRoom(x, z - 0.2),
-    // door is on wall 9 (east); start just inside it looking across at the desk
-    camera: { orbit: [4.5, 5, 5.5], target: [0, 0.8, 0], walk: [0.8, 1.6, 0.1], walkLook: [-0.7, 1.1, 0.9] },
+    camera: opts.camera ?? CAMERA,
     environment: { center: [0, 1.3, 0], intensity: 0.7 },
     loadReference: loadScan,
     referenceAvailable: true,
     referenceKind: 'scan',
     photos,
   };
+}
+
+export function buildBasementOffice(): Promise<BuiltRoom> {
+  return buildRoom({
+    furniture: scannedFurniture,
+    objects: () => ROOM_OBJECTS,
+    note: 'RoomPlan measurements from the 2026-10-22 scan; window span corrected from the LiDAR mesh. Object boxes are RoomPlan bounds; the modeled furniture follows the mesh where they differ.',
+  });
 }
 
 export const basementOffice: RoomModule = { id: 'basement-office', label: 'Basement office', build: buildBasementOffice };
